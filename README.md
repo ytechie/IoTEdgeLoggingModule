@@ -29,7 +29,7 @@ Pros:
 
 ### Fluentd Logging
 
-`FluentdClient` contains a proof of concept for using the Fluentd logging driver with Docker and send those logs to a Fluentd listener. This is a robust solution that many are familiar with. More configuration details can be found [here](FluentdClient/usage.md).
+`FluentdClient` contains a proof of concept for using the [Fluentd](https://www.fluentd.org/) logging driver with Docker and send those logs to a Fluentd listener. This is a robust solution that many are familiar with. More configuration details can be found [here](FluentdClient/usage.md).
 
 Pros:
 
@@ -40,6 +40,17 @@ Cons:
 
 * Not supported on Nano Server or Windows IoT Core
 
+
+## IoT Edge Configuration
+
+In your [deployment manifest](https://docs.microsoft.com/en-us/azure/iot-edge/module-composition#deployment-manifest-example), look for the `runtime.settings.loggingOptions` property. This is a stringified JSON containing the logging options for the Edge agent container:
+
+    {
+        "log-driver": "syslog",
+        "log-opts": {
+            "syslog-address": "tcp://127.0.0.1:32795"
+        }
+    }
 
 
 
