@@ -1,3 +1,8 @@
+syslog is a great mechanism for passing messages since it's widely supported, extremely simple, and super fast.
+
+We used rsyslog inside a container to receive syslog messages, aggregate them, and send them to an output. This could be a file inside the container, or it could be any of many [output modules](https://www.rsyslog.com/doc/v8-stable/configuration/modules/idx_output.html).
+
+
 Creating the logging container:
 
     docker build -t syslog .
