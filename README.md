@@ -14,14 +14,3 @@ An Azure IoT Edge Module for collecting edge module logs and pushing them to Azu
 
 ## Similar Architecture
 ![](https://www.loggly.com/wp-content/uploads/2014/11/Loggly_Docker_container_diagram.png)
-
-## Useful Commands
-
-Viewing local syslog on MacOS: `tail -f /var/log/system.log`
-
-
-
-## Fluentd Commands:
-
-docker run -i -d -P -v /Users/jasonyoung/src/IoTEdgeLoggingModule/FluentdClient:/fluentd/etc fluent/fluentd
-docker run --log-driver=fluentd --log-opt fluentd-address=127.0.0.1:32790 hello-world
