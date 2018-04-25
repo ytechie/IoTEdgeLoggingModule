@@ -52,7 +52,9 @@ In your [deployment manifest](https://docs.microsoft.com/en-us/azure/iot-edge/mo
         }
     }
 
+## Custom Logging Driver
 
+Unfortunately, custom [logging drivers](https://docs.docker.com/engine/extend/plugins_logging/#logdriverstartlogging) for Docker are not supported on Windows.
 
 ## Related Links for Docker Logging
 * [Strategies for Docker Logging](https://www.loggly.com/docs/strategies-for-docker-logging/)
