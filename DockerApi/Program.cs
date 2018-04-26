@@ -71,11 +71,8 @@ namespace dockerlogs
 
             CloudAppendBlob blockBlob = blobContainer.GetAppendBlobReference(blobName);
 
-            
-            
             ContainerLogsParameters logsParameters = new ContainerLogsParameters() { ShowStderr = true, ShowStdout = true, Follow = true };
             Stream logs = await _client.Containers.GetContainerLogsAsync(edgeAgent.ID, logsParameters, CancellationToken.None);
-
 
             List<string> logdata = new List<string>();
 
@@ -95,7 +92,7 @@ namespace dockerlogs
                     if (logdata.Count > 500)
                     {
                         Console.WriteLine("Uploading...");
-                        string data = string.Join(',', logdata);
+                        string data = string.Join(System.Environment.NewLine, logdata);
                         await blockBlob.CreateOrReplaceAsync();
 
                         try
