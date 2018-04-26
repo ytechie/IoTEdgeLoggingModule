@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.IO;
+using Microsoft.ApplicationInsights;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Auth;
 using Microsoft.WindowsAzure.Storage.Blob;
@@ -17,6 +18,7 @@ namespace dockerlogs
     class Program
     {
         public static DockerClient _client;
+        public static bool useStorage = true;
 
         static async Task Main(string[] args)
         {
@@ -36,9 +38,19 @@ namespace dockerlogs
                 });
 
             ContainerListResponse edgeAgent = null;
+            List<ContainerListResponse> edgeModules = new List<ContainerListResponse>();
 
             foreach(var container in containers)
             {
+                foreach(var label in container.Labels)
+                {
+                    if (label.Key.Contains("net.azure-devices.edge.owner"))
+                    {
+                        edgeModules.Add(container);
+                    }
+                }
+
+                // edge case due to bug (no pun intended)
                 if (container.Names.First() == "/edgeAgent")
                 {
                     edgeAgent = container;
@@ -46,6 +58,9 @@ namespace dockerlogs
                 }
                 Console.WriteLine($"{container.ID}");
             }
+            
+            TelemetryClient telemetry = new TelemetryClient();
+            telemetry.InstrumentationKey = "";
 
             string containerName = "iotlogs";
             string blobName =  string.Format("{0}-{1}{2}", edgeAgent.Names.First().TrimStart('/'), DateTime.UtcNow.ToString("yyyy-MM-dd-hh-mm-ss"), ".log");
@@ -91,21 +106,41 @@ namespace dockerlogs
 
                     if (logdata.Count > 500)
                     {
-                        Console.WriteLine("Uploading...");
-                        string data = string.Join(System.Environment.NewLine, logdata);
-                        await blockBlob.CreateOrReplaceAsync();
-
-                        try
+                        if (useStorage)
                         {
-                            await blockBlob.AppendTextAsync(data);
+                            Console.WriteLine("Uploading...");
+                            string data = string.Join(System.Environment.NewLine, logdata);
+                            await blockBlob.CreateOrReplaceAsync();
+
+                            try
+                            {
+                                await blockBlob.AppendTextAsync(data);
+                            }
+                            catch (System.Exception up)
+                            {
+                                throw up;
+                            }
+
+                            logdata.Clear();
                         }
-                        catch (System.Exception up)
+                        else
                         {
-                            throw up;
+                            Console.WriteLine("Uploading...");
+
+                            try
+                            {
+                                foreach (var msg in logdata)
+                                {
+                                    telemetry.TrackTrace(msg);
+                                }
+                            }
+                            catch (System.Exception up)
+                            {
+                                throw up;
+                            }
+
+                            logdata.Clear();
                         }
-
-                        logdata.Clear();
-
                     }
                 }
             }
