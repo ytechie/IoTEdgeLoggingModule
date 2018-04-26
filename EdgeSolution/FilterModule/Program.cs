@@ -1,6 +1,9 @@
 using System.Collections.Generic;     // for KeyValuePair<>
 using Microsoft.Azure.Devices.Shared; // for TwinCollection
 using Newtonsoft.Json;                // for JsonConvert
+using System.Timers;
+using System.IO;
+
 
 namespace FilterModule
 {
@@ -139,7 +142,7 @@ namespace FilterModule
             await ioTHubModuleClient.OpenAsync();
             Console.WriteLine("IoT Hub module client initialized.");
 
-            // Register callback to be called when a message is received by the module
+                        // Register callback to be called when a message is received by the module
             // await ioTHubModuleClient.SetImputMessageHandlerAsync("input1", PipeMessage, iotHubModuleClient);
 
             // Read TemperatureThreshold from Module Twin Desired Properties
@@ -155,6 +158,29 @@ namespace FilterModule
 
             // Register callback to be called when a message is received by the module
             await ioTHubModuleClient.SetInputMessageHandlerAsync("input1", FilterMessages, ioTHubModuleClient);
+            var timer = new System.Timers.Timer(5000);
+            timer.Elapsed+= async (sender, e) => {
+                
+                // read the log file 
+                try
+                {
+                    using (StreamReader sr = new StreamReader("/var/log/messages"))
+                    {
+                        String line  = sr.ReadToEnd();
+                        moduleTwinCollection["logs"] = line;
+                        await ioTHubModuleClient.UpdateReportedPropertiesAsync(moduleTwinCollection);
+                        Console.WriteLine(line);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Issue with reading the file");
+                    Console.WriteLine(ex.Message);
+                }
+
+                
+            };
+
         }
 
         static async Task<MessageResponse> FilterMessages(Message message, object userContext)
@@ -209,40 +235,7 @@ namespace FilterModule
                 return MessageResponse.Abandoned;
             }
         }
+
         
-        /*
-        /// <summary>
-        /// This method is called whenever the module is sent a message from the EdgeHub. 
-        /// It just pipe the messages without any change.
-        /// It prints all the incoming messages.
-        /// </summary>
-        static async Task<MessageResponse> PipeMessage(Message message, object userContext)
-        {
-            int counterValue = Interlocked.Increment(ref counter);
-
-            var deviceClient = userContext as DeviceClient;
-            if (deviceClient == null)
-            {
-                throw new InvalidOperationException("UserContext doesn't contain " + "expected values");
-            }
-
-            byte[] messageBytes = message.GetBytes();
-            string messageString = Encoding.UTF8.GetString(messageBytes);
-            Console.WriteLine($"Received message: {counterValue}, Body: [{messageString}]");
-
-            if (!string.IsNullOrEmpty(messageString))
-            {
-                var pipeMessage = new Message(messageBytes);
-                foreach (var prop in message.Properties)
-                {
-                    pipeMessage.Properties.Add(prop.Key, prop.Value);
-                }
-                await deviceClient.SendEventAsync("output1", pipeMessage);
-                Console.WriteLine("Received message sent");
-            }
-            return MessageResponse.Completed;
-        }
-
-        */
     }
 }
