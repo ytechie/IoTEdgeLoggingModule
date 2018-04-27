@@ -9,6 +9,7 @@ namespace FilterModule
     using System.Threading;
     using System.Threading.Tasks;
     using Microsoft.Azure.Devices.Client;
+    using Microsoft.Azure.Devices.Shared;
     using Microsoft.Azure.Devices.Client.Transport.Mqtt;
 
     class Program
@@ -23,7 +24,7 @@ namespace FilterModule
             // Cert verification is not yet fully functional when using Windows OS for the container
             bool bypassCertVerification = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
             if (!bypassCertVerification) InstallCert();
-            Init(connectionString, bypassCertVerification).Wait();
+            Init(connectionString, bypassCertVerification);
 
             // Wait until the app unloads or is cancelled
             var cts = new CancellationTokenSource();
@@ -72,7 +73,7 @@ namespace FilterModule
         /// Initializes the DeviceClient and sets up the callback to receive
         /// messages containing temperature information
         /// </summary>
-        static async Task Init(string connectionString, bool bypassCertVerification = false)
+        static void Init(string connectionString, bool bypassCertVerification = false)
         {
             Console.WriteLine("Connection String {0}", connectionString);
 
@@ -85,8 +86,6 @@ namespace FilterModule
             ITransportSettings[] settings = { mqttSetting };
 
             // Open a connection to the Edge runtime
-            DeviceClient ioTHubModuleClient = DeviceClient.CreateFromConnectionString(connectionString, settings);
-            await ioTHubModuleClient.OpenAsync();
             Console.WriteLine("IoT Hub module client initialized fool!");
 
             // Register callback to be called when a message is received by the module
@@ -94,22 +93,37 @@ namespace FilterModule
             
             Console.WriteLine("Starting timer");
 
-            var timer = new System.Timers.Timer(3000);
+            var timer = new System.Timers.Timer(10000);
             timer.Elapsed += async (Object source, System.Timers.ElapsedEventArgs e) => {
                 Console.WriteLine("Timer Elapsed at: {0}", e.SignalTime);
-                /*using(var reader = new System.IO.StreamReader("/var/log/messages")) {                    
-                    var deviceTwin = await ioTHubModuleClient.GetTwinAsync();
-                    var deviceTwinCollection = moduleTwin.Properties.Reported;
-                    deviceTwinCollection["logs"] = await reader.ReadToEndAsync();
-                    await ioTHubModuleClient.UpdateReportedPropertiesAsync(deviceTwinCollection);
+                /*using(var reader = new System.IO.StreamReader("/var/log/messages")) {  
+                    var moduleTwinCollection = new TwinCollection();
+                    moduleTwinCollection["logs"] = await reader.ReadToEndAsync();
+                    await ioTHubModuleClient.UpdateReportedPropertiesAsync(moduleTwinCollection);
                 }*/
-                  
-                // DOES NOT WORK, DEVUCE TWIN PROPERTY NOT UPDATED!?!  
-                // Replace with event hub or blob storage ?
-                var deviceTwin = await ioTHubModuleClient.GetTwinAsync();
-                var deviceTwinCollection = deviceTwin.Properties.Reported;
-                deviceTwinCollection["logs"] = string.Format("Timer Elapsed at: {0}", e.SignalTime);
-                await ioTHubModuleClient.UpdateReportedPropertiesAsync(deviceTwinCollection);
+                
+                try
+                {                  
+                    var ioTHubModuleClient = DeviceClient.CreateFromConnectionString(connectionString, settings);
+                    await ioTHubModuleClient.OpenAsync();
+                    var moduleTwinCollection = new TwinCollection();
+                    moduleTwinCollection["timeStamp"] = e.SignalTime.ToFileTimeUtc().ToString();
+                    await ioTHubModuleClient.UpdateReportedPropertiesAsync(moduleTwinCollection);    
+                    await ioTHubModuleClient.CloseAsync();
+                }
+                catch (AggregateException ex)
+                {
+                    foreach (Exception exception in ex.InnerExceptions)
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("Error in sample: {0}", exception);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("Error in sample: {0}", ex.Message);
+                }
             };
             timer.Start();
         }       
